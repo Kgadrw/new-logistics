@@ -43,19 +43,7 @@ cd backend
 npm install
 ```
 
-## Configuration
 
-1. Create a `.env` file in the backend directory:
-```bash
-# Copy from .env.example or create manually
-```
-
-2. Add your MongoDB connection string:
-```env
-MONGODB_URI=mongodb+srv://username:password@cluster0.anfwvi8.mongodb.net/uzalogistics?retryWrites=true&w=majority&appName=Cluster0
-PORT=3001
-NODE_ENV=development
-```
 
 **Note**: Replace `username` and `password` with your MongoDB Atlas credentials.
 
@@ -81,9 +69,6 @@ To create the default admin account:
 npm run create-admin
 ```
 
-This will create an admin user with:
-- Email: `admin@uzalogistics.com`
-- Password: `admin123`
 
 **⚠️ Important**: Change the password after first login!
 
