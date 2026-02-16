@@ -14,7 +14,7 @@ cloudinary.config({
 // Configure multer to store files in memory
 const storage = multer.memoryStorage();
 
-// Configure multer
+// Configure multer for images only
 export const upload = multer({
   storage: storage,
   limits: {
@@ -30,7 +30,33 @@ export const upload = multer({
   },
 });
 
-// Helper function to upload file buffer to Cloudinary
+// Configure multer for documents (PDF, images, etc.)
+export const uploadDocument = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for documents
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept PDF, images, and common document formats
+    const allowedMimes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, images, and document files are allowed'), false);
+    }
+  },
+});
+
+// Helper function to upload file buffer to Cloudinary (for images)
 export const uploadToCloudinary = async (fileBuffer, folder = 'uzalogistics', filename = null) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -44,6 +70,29 @@ export const uploadToCloudinary = async (fileBuffer, folder = 'uzalogistics', fi
         if (error) {
           console.error('Cloudinary upload error:', error);
           reject(new Error('Failed to upload image to Cloudinary'));
+        } else {
+          resolve(result.secure_url);
+        }
+      }
+    );
+    
+    uploadStream.end(fileBuffer);
+  });
+};
+
+// Helper function to upload document to Cloudinary (PDF, images, etc.)
+export const uploadDocumentToCloudinary = async (fileBuffer, folder = 'uzalogistics', filename = null, resourceType = 'auto') => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: folder,
+        resource_type: resourceType, // 'auto' detects PDF, images, etc.
+        public_id: filename,
+      },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary document upload error:', error);
+          reject(new Error('Failed to upload document to Cloudinary'));
         } else {
           resolve(result.secure_url);
         }

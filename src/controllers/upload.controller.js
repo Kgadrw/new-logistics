@@ -1,5 +1,5 @@
 // Upload controller for handling image uploads
-import { uploadToCloudinary, uploadBase64 } from '../utils/upload.js';
+import { uploadToCloudinary, uploadBase64, uploadDocumentToCloudinary } from '../utils/upload.js';
 
 // Upload single image file
 export const uploadImage = async (req, res) => {
@@ -15,6 +15,24 @@ export const uploadImage = async (req, res) => {
   } catch (error) {
     console.error('Upload image error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload image' });
+  }
+};
+
+// Upload document file (PDF, images, etc.)
+export const uploadDocument = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const folder = req.body.folder || 'uzalogistics';
+    const resourceType = req.file.mimetype === 'application/pdf' ? 'raw' : 'auto';
+    const documentUrl = await uploadDocumentToCloudinary(req.file.buffer, folder, null, resourceType);
+
+    res.json({ success: true, documentUrl });
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ error: error.message || 'Failed to upload document' });
   }
 };
 

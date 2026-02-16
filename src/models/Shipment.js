@@ -39,6 +39,13 @@ const dispatchSchema = new mongoose.Schema({
   },
   transportId: String,
   departureDateIso: String,
+  packagingList: String,
+  packageNumber: String,
+  consigneeNumber: String,
+  shippingMark: {
+    type: String,
+    default: 'UZA Solutions',
+  },
 }, { _id: false });
 
 const shipmentSchema = new mongoose.Schema({
@@ -69,6 +76,8 @@ const shipmentSchema = new mongoose.Schema({
   notes: String,
   warehouseRemarks: String,
   receivedProductImages: [String], // Array of image URLs for received products
+  draftBL: String, // Draft Bill of Lading
+  consumerNumber: String, // Consumer number for warehouse
   createdAtIso: {
     type: String,
     required: true,

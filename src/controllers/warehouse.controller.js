@@ -215,7 +215,7 @@ export const getShipmentById = async (req, res) => {
 export const receiveShipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { receivedProductImages } = req.body;
+    const { receivedProductImages, draftBL, consumerNumber } = req.body;
     const shipment = await Shipment.findOne({ id });
     
     if (!shipment) {
@@ -229,6 +229,12 @@ export const receiveShipment = async (req, res) => {
     shipment.status = 'Received';
     if (receivedProductImages && Array.isArray(receivedProductImages)) {
       shipment.receivedProductImages = receivedProductImages;
+    }
+    if (draftBL) {
+      shipment.draftBL = draftBL;
+    }
+    if (consumerNumber) {
+      shipment.consumerNumber = consumerNumber;
     }
     shipment.updatedAtIso = nowIso();
     await shipment.save();
@@ -255,9 +261,10 @@ export const receiveShipment = async (req, res) => {
 export const dispatchShipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { method, transportId, departureDate } = req.body;
+    const { method, transportId, departureDate, departureDateIso, packagingList, packageNumber, consigneeNumber, shippingMark } = req.body;
     
-    if (!method || !transportId || !departureDate) {
+    const departureDateValue = departureDateIso || departureDate;
+    if (!method || !transportId || !departureDateValue) {
       return res.status(400).json({ error: 'Method, transport ID, and departure date are required' });
     }
 
@@ -274,7 +281,11 @@ export const dispatchShipment = async (req, res) => {
     shipment.dispatch = {
       method,
       transportId,
-      departureDateIso: departureDate
+      departureDateIso: departureDateValue,
+      packagingList: packagingList || undefined,
+      packageNumber: packageNumber || undefined,
+      consigneeNumber: consigneeNumber || undefined,
+      shippingMark: shippingMark || 'UZA Solutions',
     };
     shipment.updatedAtIso = nowIso();
     await shipment.save();
