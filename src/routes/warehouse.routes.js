@@ -11,7 +11,8 @@ import {
   dispatchShipment,
   updateShipmentStatus,
   addWarehouseRemarks,
-  markInTransit
+  markInTransit,
+  updateShipmentDetails
 } from '../controllers/warehouse.controller.js';
 
 const router = express.Router();
@@ -33,5 +34,6 @@ router.post('/shipments/:id/dispatch', dispatchShipment);
 router.post('/shipments/:id/in-transit', markInTransit);
 router.put('/shipments/:id/status', updateShipmentStatus);
 router.put('/shipments/:id/remarks', addWarehouseRemarks);
+router.put('/shipments/:id/details', updateShipmentDetails);
 
 export default router;

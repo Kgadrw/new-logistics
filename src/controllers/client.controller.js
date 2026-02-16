@@ -265,6 +265,28 @@ export const updateShipment = async (req, res) => {
   }
 };
 
+export const updateShipmentNotes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const shipment = await Shipment.findOne({ id });
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    // Allow updating notes at any status
+    shipment.notes = notes || '';
+    shipment.updatedAtIso = nowIso();
+    await shipment.save();
+
+    res.json({ success: true, message: 'Notes updated successfully', shipment });
+  } catch (error) {
+    console.error('Update shipment notes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const deleteShipment = async (req, res) => {
   try {
     const { id } = req.params;

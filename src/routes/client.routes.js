@@ -7,6 +7,7 @@ import {
   getClientShipmentById,
   createShipment,
   updateShipment,
+  updateShipmentNotes,
   deleteShipment,
   submitShipment,
   getWarehouses,
@@ -30,6 +31,7 @@ router.get('/shipments', getClientShipments);
 router.get('/shipments/:id', getClientShipmentById);
 router.post('/shipments', createShipment);
 router.put('/shipments/:id', updateShipment);
+router.put('/shipments/:id/notes', updateShipmentNotes);
 router.delete('/shipments/:id', deleteShipment);
 router.post('/shipments/:id/submit', submitShipment);
 router.post('/shipments/:id/mark-delivered', markDelivered);

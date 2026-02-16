@@ -314,10 +314,10 @@ export const updateShipmentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    // Warehouse can only set: Received, Left Warehouse, In Transit
-    const allowedStatuses = ['Received', 'Left Warehouse', 'In Transit'];
+    // Warehouse can set: Submitted, Received, Left Warehouse, In Transit
+    const allowedStatuses = ['Submitted', 'Received', 'Left Warehouse', 'In Transit'];
     if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Warehouse can only set status to: Received, Left Warehouse, or In Transit' });
+      return res.status(400).json({ error: 'Warehouse can only set status to: Submitted, Received, Left Warehouse, or In Transit' });
     }
 
     const shipment = await Shipment.findOne({ id });
@@ -325,20 +325,55 @@ export const updateShipmentStatus = async (req, res) => {
       return res.status(404).json({ error: 'Shipment not found' });
     }
 
-    // Validate status transitions
-    if (status === 'Received' && shipment.status !== 'Submitted') {
-      return res.status(400).json({ error: 'Can only mark as Received from Submitted status' });
+    // Allow forward and reverse transitions for warehouse
+    // Forward: Submitted → Received → Left Warehouse → In Transit
+    // Reverse: In Transit → Left Warehouse → Received → Submitted
+    const validTransitions = {
+      'Submitted': ['Received'],
+      'Received': ['Submitted', 'Left Warehouse'],
+      'Left Warehouse': ['Received', 'In Transit'],
+      'In Transit': ['Left Warehouse'],
+      'Delivered': [] // Cannot change from Delivered
+    };
+
+    const currentStatus = shipment.status;
+    if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status)) {
+      return res.status(400).json({ 
+        error: `Cannot change status from ${currentStatus} to ${status}. Valid transitions: ${validTransitions[currentStatus].join(', ')}` 
+      });
     }
-    if (status === 'Left Warehouse' && shipment.status !== 'Received') {
-      return res.status(400).json({ error: 'Can only mark as Left Warehouse from Received status' });
+
+    // If reversing to Submitted, clear dispatch info
+    if (status === 'Submitted' && shipment.dispatch) {
+      shipment.dispatch = undefined;
     }
-    if (status === 'In Transit' && shipment.status !== 'Left Warehouse') {
-      return res.status(400).json({ error: 'Can only mark as In Transit from Left Warehouse status' });
+    // If reversing to Received, clear dispatch info
+    if (status === 'Received' && shipment.dispatch) {
+      shipment.dispatch = undefined;
     }
 
     shipment.status = status;
     shipment.updatedAtIso = nowIso();
     await shipment.save();
+
+    // Create notification for status change
+    const statusMessages = {
+      'Submitted': 'reverted to Submitted',
+      'Received': 'marked as Received',
+      'Left Warehouse': 'marked as Left Warehouse',
+      'In Transit': 'marked as In Transit'
+    };
+
+    const notification = new Notification({
+      id: makeId('ntf'),
+      createdAtIso: nowIso(),
+      roleTargets: ['client', 'admin', 'warehouse'],
+      unreadBy: { client: true, warehouse: false, admin: true },
+      shipmentId: id,
+      title: `Status changed to ${status}`,
+      message: `Shipment #${id} has been ${statusMessages[status] || 'status updated'}.`,
+    });
+    await notification.save();
 
     res.json({ success: true, message: 'Status updated successfully', shipment });
   } catch (error) {
@@ -400,6 +435,67 @@ export const addWarehouseRemarks = async (req, res) => {
     res.json({ success: true, message: 'Remarks added successfully', shipment });
   } catch (error) {
     console.error('Add warehouse remarks error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateShipmentDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      receivedProductImages, 
+      draftBL, 
+      consumerNumber,
+      packagingList,
+      packageNumber,
+      consigneeNumber,
+      shippingMark,
+      notes
+    } = req.body;
+    
+    const shipment = await Shipment.findOne({ id });
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    // Update client notes if provided (warehouse can edit client notes)
+    if (notes !== undefined) {
+      shipment.notes = notes || '';
+    }
+
+    // Update received details
+    if (receivedProductImages !== undefined) {
+      shipment.receivedProductImages = Array.isArray(receivedProductImages) ? receivedProductImages : [];
+    }
+    if (draftBL !== undefined) {
+      shipment.draftBL = draftBL || undefined;
+    }
+    if (consumerNumber !== undefined) {
+      shipment.consumerNumber = consumerNumber || undefined;
+    }
+
+    // Update dispatch details if dispatch exists
+    if (shipment.dispatch) {
+      if (packagingList !== undefined) {
+        shipment.dispatch.packagingList = packagingList || undefined;
+      }
+      if (packageNumber !== undefined) {
+        shipment.dispatch.packageNumber = packageNumber || undefined;
+      }
+      if (consigneeNumber !== undefined) {
+        shipment.dispatch.consigneeNumber = consigneeNumber || undefined;
+      }
+      if (shippingMark !== undefined) {
+        shipment.dispatch.shippingMark = shippingMark || 'UZA Solutions';
+      }
+    }
+
+    shipment.updatedAtIso = nowIso();
+    await shipment.save();
+
+    res.json({ success: true, message: 'Shipment details updated successfully', shipment });
+  } catch (error) {
+    console.error('Update shipment details error:', error);
     res.status(500).json({ error: error.message });
   }
 };
