@@ -86,14 +86,17 @@ export const uploadDocumentToCloudinary = async (fileBuffer, folder = 'uzalogist
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: folder,
-        resource_type: resourceType, // 'auto' detects PDF, images, etc.
+        resource_type: resourceType, // 'raw' for PDFs, 'auto' for images
         public_id: filename,
+        // For PDFs, ensure they're stored as raw files
+        ...(resourceType === 'raw' ? { format: 'pdf' } : {}),
       },
       (error, result) => {
         if (error) {
           console.error('Cloudinary document upload error:', error);
           reject(new Error('Failed to upload document to Cloudinary'));
         } else {
+          // For raw resources (PDFs), Cloudinary returns secure_url directly
           resolve(result.secure_url);
         }
       }
