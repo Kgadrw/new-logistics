@@ -9,10 +9,25 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function estimateCostUsd(pricing, shipment) {
+function estimateCostUsd(pricing, shipment, warehousePricing = null) {
   const kg = shipment.products.reduce((s, p) => s + p.weightKg * p.quantity, 0);
-  const base = kg * pricing.pricePerKgUsd + pricing.warehouseHandlingFeeUsd;
-  const transport = shipment.dispatch ? pricing.transportPriceUsd[shipment.dispatch.method] : 0;
+  
+  // Use warehouse-specific pricing if available, otherwise use global pricing
+  const pricePerKg = warehousePricing?.pricePerKgUsd ?? pricing.pricePerKgUsd;
+  const handlingFee = warehousePricing?.warehouseHandlingFeeUsd ?? pricing.warehouseHandlingFeeUsd;
+  const base = kg * pricePerKg + handlingFee;
+  
+  // Transport pricing: use warehouse pricing if available and method is supported
+  let transport = 0;
+  if (shipment.dispatch) {
+    const method = shipment.dispatch.method;
+    if (warehousePricing?.transportPriceUsd?.[method] !== undefined) {
+      transport = warehousePricing.transportPriceUsd[method];
+    } else if (pricing.transportPriceUsd?.[method] !== undefined) {
+      transport = pricing.transportPriceUsd[method];
+    }
+  }
+  
   return Math.round(base + transport);
 }
 
@@ -179,6 +194,19 @@ export const createShipment = async (req, res) => {
 
     // Get pricing for cost estimation
     const pricing = await PricingRules.getPricingRules();
+    
+    // Get warehouse-specific pricing if warehouseId is provided
+    let warehousePricing = null;
+    if (finalWarehouseId) {
+      const warehouse = await User.findOne({ id: finalWarehouseId, role: 'warehouse' });
+      if (warehouse && (warehouse.pricePerKgUsd || warehouse.warehouseHandlingFeeUsd)) {
+        warehousePricing = {
+          pricePerKgUsd: warehouse.pricePerKgUsd || 0,
+          warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
+          transportPriceUsd: warehouse.transportPriceUsd || {},
+        };
+      }
+    }
 
     // Create shipment
     const shipmentId = makeShipmentId();
@@ -201,8 +229,8 @@ export const createShipment = async (req, res) => {
       estimatedCostUsd: 0,
     });
 
-    // Calculate estimated cost
-    shipment.estimatedCostUsd = estimateCostUsd(pricing, shipment);
+    // Calculate estimated cost using warehouse pricing if available
+    shipment.estimatedCostUsd = estimateCostUsd(pricing, shipment, warehousePricing);
     await shipment.save();
 
     // Create notification
@@ -243,6 +271,19 @@ export const updateShipment = async (req, res) => {
 
     // Get pricing for cost recalculation
     const pricing = await PricingRules.getPricingRules();
+    
+    // Get warehouse-specific pricing if warehouseId is available
+    let warehousePricing = null;
+    if (shipment.warehouseId) {
+      const warehouse = await User.findOne({ id: shipment.warehouseId, role: 'warehouse' });
+      if (warehouse && (warehouse.pricePerKgUsd || warehouse.warehouseHandlingFeeUsd)) {
+        warehousePricing = {
+          pricePerKgUsd: warehouse.pricePerKgUsd || 0,
+          warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
+          transportPriceUsd: warehouse.transportPriceUsd || {},
+        };
+      }
+    }
 
     if (products) {
       shipment.products = products.map(p => ({
@@ -255,7 +296,7 @@ export const updateShipment = async (req, res) => {
     }
     
     shipment.updatedAtIso = nowIso();
-    shipment.estimatedCostUsd = estimateCostUsd(pricing, shipment);
+    shipment.estimatedCostUsd = estimateCostUsd(pricing, shipment, warehousePricing);
     await shipment.save();
 
     res.json({ success: true, message: 'Shipment updated successfully', shipment });

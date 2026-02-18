@@ -37,6 +37,29 @@ const userSchema = new mongoose.Schema({
   capacity: String,
   manager: String,
   contact: String,
+  // Warehouse pricing
+  pricePerKgUsd: {
+    type: Number,
+    default: 0,
+  },
+  warehouseHandlingFeeUsd: {
+    type: Number,
+    default: 0,
+  },
+  transportPriceUsd: {
+    Air: {
+      type: Number,
+      default: 0,
+    },
+    Ship: {
+      type: Number,
+      default: 0,
+    },
+  },
+  logisticsMethods: [{
+    type: String,
+    enum: ['Air', 'Ship'],
+  }],
 }, {
   timestamps: true,
 });

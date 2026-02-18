@@ -372,7 +372,6 @@ export const getPricingRules = async (req, res) => {
     const pricing = await PricingRules.getPricingRules();
     res.json({
       pricePerKgUsd: pricing.pricePerKgUsd,
-      transportPriceUsd: pricing.transportPriceUsd,
       warehouseHandlingFeeUsd: pricing.warehouseHandlingFeeUsd
     });
   } catch (error) {

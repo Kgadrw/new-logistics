@@ -63,6 +63,13 @@ export const getWarehouseProfile = async (req, res) => {
       contact: user.contact || '',
       phone: user.contact || '', // Alias for contact
       address: user.location || '', // Alias for location
+      pricePerKgUsd: user.pricePerKgUsd || 0,
+      warehouseHandlingFeeUsd: user.warehouseHandlingFeeUsd || 0,
+      transportPriceUsd: {
+        Air: user.transportPriceUsd?.Air || 0,
+        Ship: user.transportPriceUsd?.Ship || 0,
+      },
+      logisticsMethods: user.logisticsMethods || [],
     });
   } catch (error) {
     console.error('Get warehouse profile error:', error);
