@@ -86,17 +86,48 @@ export const updateWarehouseProfile = async (req, res) => {
     delete updates.password;
     delete updates.id;
 
-    const user = await User.findOneAndUpdate(
-      { id: warehouseId, role: 'warehouse' },
-      updates,
-      { new: true, runValidators: true }
-    ).select('-password');
-
+    // Find the user first
+    const user = await User.findOne({ id: warehouseId, role: 'warehouse' });
     if (!user) {
       return res.status(404).json({ error: 'Warehouse not found' });
     }
 
-    res.json({ success: true, message: 'Profile updated successfully', user });
+    // Handle nested transportPriceUsd object properly
+    if (updates.transportPriceUsd) {
+      user.transportPriceUsd = user.transportPriceUsd || {};
+      if (updates.transportPriceUsd.Air !== undefined) {
+        user.transportPriceUsd.Air = updates.transportPriceUsd.Air;
+      }
+      if (updates.transportPriceUsd.Ship !== undefined) {
+        user.transportPriceUsd.Ship = updates.transportPriceUsd.Ship;
+      }
+    }
+    
+    // Update other fields
+    if (updates.pricePerKgUsd !== undefined) user.pricePerKgUsd = updates.pricePerKgUsd;
+    if (updates.warehouseHandlingFeeUsd !== undefined) user.warehouseHandlingFeeUsd = updates.warehouseHandlingFeeUsd;
+    if (updates.logisticsMethods !== undefined) user.logisticsMethods = updates.logisticsMethods;
+    if (updates.name !== undefined) user.name = updates.name;
+    if (updates.email !== undefined) user.email = updates.email;
+    if (updates.location !== undefined) user.location = updates.location;
+    if (updates.capacity !== undefined) user.capacity = updates.capacity;
+    if (updates.manager !== undefined) user.manager = updates.manager;
+    if (updates.contact !== undefined) user.contact = updates.contact;
+    
+    // Save the user
+    await user.save();
+    
+    // Return updated user without password
+    const updatedUser = await User.findOne({ id: warehouseId, role: 'warehouse' }).select('-password');
+    
+    console.log('Updated user pricing:', {
+      pricePerKgUsd: updatedUser.pricePerKgUsd,
+      warehouseHandlingFeeUsd: updatedUser.warehouseHandlingFeeUsd,
+      transportPriceUsd: updatedUser.transportPriceUsd,
+      logisticsMethods: updatedUser.logisticsMethods,
+    });
+    
+    res.json({ success: true, message: 'Profile updated successfully', user: updatedUser });
   } catch (error) {
     console.error('Update warehouse profile error:', error);
     res.status(500).json({ error: error.message });
