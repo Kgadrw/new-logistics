@@ -120,13 +120,6 @@ export const updateWarehouseProfile = async (req, res) => {
     // Return updated user without password
     const updatedUser = await User.findOne({ id: warehouseId, role: 'warehouse' }).select('-password');
     
-    console.log('Updated user pricing:', {
-      pricePerKgUsd: updatedUser.pricePerKgUsd,
-      warehouseHandlingFeeUsd: updatedUser.warehouseHandlingFeeUsd,
-      transportPriceUsd: updatedUser.transportPriceUsd,
-      logisticsMethods: updatedUser.logisticsMethods,
-    });
-    
     res.json({ success: true, message: 'Profile updated successfully', user: updatedUser });
   } catch (error) {
     console.error('Update warehouse profile error:', error);
@@ -488,7 +481,8 @@ export const updateShipmentDetails = async (req, res) => {
       packageNumber,
       consigneeNumber,
       shippingMark,
-      notes
+      notes,
+      products
     } = req.body;
     
     const shipment = await Shipment.findOne({ id });
@@ -526,6 +520,24 @@ export const updateShipmentDetails = async (req, res) => {
       if (shippingMark !== undefined) {
         shipment.dispatch.shippingMark = shippingMark || 'UZA Solutions';
       }
+    }
+
+    // Update products with dimensions and CBM if provided
+    if (products !== undefined && Array.isArray(products)) {
+      // Match products by id and update dimensions
+      shipment.products = shipment.products.map(existingProduct => {
+        const updatedProduct = products.find((p: any) => p.id === existingProduct.id);
+        if (updatedProduct) {
+          return {
+            ...existingProduct.toObject ? existingProduct.toObject() : existingProduct,
+            lengthCm: updatedProduct.lengthCm !== undefined ? updatedProduct.lengthCm : existingProduct.lengthCm,
+            widthCm: updatedProduct.widthCm !== undefined ? updatedProduct.widthCm : existingProduct.widthCm,
+            heightCm: updatedProduct.heightCm !== undefined ? updatedProduct.heightCm : existingProduct.heightCm,
+            cbm: updatedProduct.cbm !== undefined ? updatedProduct.cbm : existingProduct.cbm,
+          };
+        }
+        return existingProduct;
+      });
     }
 
     shipment.updatedAtIso = nowIso();

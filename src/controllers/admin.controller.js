@@ -238,7 +238,7 @@ export const getUserById = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { name, email, password, role, phone, address, company, location, capacity, manager, contact } = req.body;
+    const { name, email, password, role, phone, address, company, location, capacity, manager, contact, consigneeName, consigneeTin, consigneeAddress, consigneePhone, consigneeEmail } = req.body;
 
     // Validation
     if (!name || !email || !password || !role) {
@@ -286,6 +286,12 @@ export const createUser = async (req, res) => {
       capacity: capacity || '',
       manager: manager || '',
       contact: contact || '',
+      // Consignee details
+      consigneeName: consigneeName || '',
+      consigneeTin: consigneeTin || '',
+      consigneeAddress: consigneeAddress || '',
+      consigneePhone: consigneePhone || '',
+      consigneeEmail: consigneeEmail || '',
     });
 
     await newUser.save();

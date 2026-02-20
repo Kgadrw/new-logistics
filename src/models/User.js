@@ -37,6 +37,12 @@ const userSchema = new mongoose.Schema({
   capacity: String,
   manager: String,
   contact: String,
+  // Consignee details
+  consigneeName: String,
+  consigneeTin: String,
+  consigneeAddress: String,
+  consigneePhone: String,
+  consigneeEmail: String,
   // Warehouse pricing
   pricePerKgUsd: {
     type: Number,
