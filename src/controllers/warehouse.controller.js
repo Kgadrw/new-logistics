@@ -526,7 +526,7 @@ export const updateShipmentDetails = async (req, res) => {
     if (products !== undefined && Array.isArray(products)) {
       // Match products by id and update dimensions
       shipment.products = shipment.products.map(existingProduct => {
-        const updatedProduct = products.find((p: any) => p.id === existingProduct.id);
+        const updatedProduct = products.find(p => p.id === existingProduct.id);
         if (updatedProduct) {
           return {
             ...existingProduct.toObject ? existingProduct.toObject() : existingProduct,
