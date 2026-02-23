@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Shipment from '../models/Shipment.js';
 import PricingRules from '../models/PricingRules.js';
 import AuditEvent from '../models/AuditEvent.js';
+import Settings from '../models/Settings.js';
 import { makeId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -421,6 +422,85 @@ export const getAuditLogs = async (req, res) => {
     res.json(logs);
   } catch (error) {
     console.error('Get audit logs error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getSettings = async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateSettings = async (req, res) => {
+  try {
+    const {
+      emailNotifications,
+      notifyOnShipmentReceived,
+      notifyOnShipmentDispatched,
+      notifyOnStatusChange,
+      defaultCurrency,
+      timezone,
+      dateFormat,
+      maxImageSizeMB,
+      maxDocumentSizeMB,
+      allowedImageTypes,
+      allowedDocumentTypes,
+      autoNotifyClientOnReceive,
+      autoNotifyClientOnDispatch,
+      autoNotifyAdminOnShipment,
+    } = req.body;
+
+    let settings = await Settings.findOne({ id: 'system-settings' });
+    if (!settings) {
+      settings = new Settings({
+        id: 'system-settings',
+        updatedAtIso: nowIso(),
+      });
+    }
+
+    // Update notification settings
+    if (emailNotifications !== undefined) settings.emailNotifications = emailNotifications;
+    if (notifyOnShipmentReceived !== undefined) settings.notifyOnShipmentReceived = notifyOnShipmentReceived;
+    if (notifyOnShipmentDispatched !== undefined) settings.notifyOnShipmentDispatched = notifyOnShipmentDispatched;
+    if (notifyOnStatusChange !== undefined) settings.notifyOnStatusChange = notifyOnStatusChange;
+
+    // Update system settings
+    if (defaultCurrency !== undefined) settings.defaultCurrency = defaultCurrency;
+    if (timezone !== undefined) settings.timezone = timezone;
+    if (dateFormat !== undefined) settings.dateFormat = dateFormat;
+
+    // Update document settings
+    if (maxImageSizeMB !== undefined) settings.maxImageSizeMB = maxImageSizeMB;
+    if (maxDocumentSizeMB !== undefined) settings.maxDocumentSizeMB = maxDocumentSizeMB;
+    if (allowedImageTypes !== undefined) settings.allowedImageTypes = allowedImageTypes;
+    if (allowedDocumentTypes !== undefined) settings.allowedDocumentTypes = allowedDocumentTypes;
+
+    // Update auto-notification settings
+    if (autoNotifyClientOnReceive !== undefined) settings.autoNotifyClientOnReceive = autoNotifyClientOnReceive;
+    if (autoNotifyClientOnDispatch !== undefined) settings.autoNotifyClientOnDispatch = autoNotifyClientOnDispatch;
+    if (autoNotifyAdminOnShipment !== undefined) settings.autoNotifyAdminOnShipment = autoNotifyAdminOnShipment;
+
+    settings.updatedAtIso = nowIso();
+    await settings.save();
+
+    // Create audit log
+    const audit = new AuditEvent({
+      id: makeId('aud'),
+      createdAtIso: nowIso(),
+      actor: 'Admin',
+      action: 'Update Settings',
+      detail: 'System settings updated',
+    });
+    await audit.save();
+
+    res.json({ success: true, message: 'Settings updated successfully', settings });
+  } catch (error) {
+    console.error('Update settings error:', error);
     res.status(500).json({ error: error.message });
   }
 };

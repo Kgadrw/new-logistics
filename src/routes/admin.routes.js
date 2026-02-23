@@ -15,7 +15,9 @@ import {
   getPricingRules,
   updatePricingRules,
   getAuditLogs,
-  getStatistics
+  getStatistics,
+  getSettings,
+  updateSettings
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -47,5 +49,9 @@ router.put('/pricing', updatePricingRules);
 
 // Audit
 router.get('/audit', getAuditLogs);
+
+// Settings
+router.get('/settings', getSettings);
+router.put('/settings', updateSettings);
 
 export default router;
