@@ -46,6 +46,7 @@ const dispatchSchema = new mongoose.Schema({
     type: String,
     default: 'UZA Solutions',
   },
+  blDocument: String, // Bill of Lading document
 }, { _id: false });
 
 const shipmentSchema = new mongoose.Schema({
@@ -76,7 +77,7 @@ const shipmentSchema = new mongoose.Schema({
   notes: String,
   warehouseRemarks: String,
   receivedProductImages: [String], // Array of image URLs for received products
-  draftBL: String, // Draft Bill of Lading
+  deliveryNote: String, // Delivery note uploaded when receiving goods
   consumerNumber: String, // Consumer number for warehouse
   createdAtIso: {
     type: String,

@@ -246,7 +246,7 @@ export const getShipmentById = async (req, res) => {
 export const receiveShipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { receivedProductImages, draftBL, consumerNumber } = req.body;
+    const { receivedProductImages, deliveryNote, consumerNumber } = req.body;
     const shipment = await Shipment.findOne({ id });
     
     if (!shipment) {
@@ -261,8 +261,8 @@ export const receiveShipment = async (req, res) => {
     if (receivedProductImages && Array.isArray(receivedProductImages)) {
       shipment.receivedProductImages = receivedProductImages;
     }
-    if (draftBL) {
-      shipment.draftBL = draftBL;
+    if (deliveryNote) {
+      shipment.deliveryNote = deliveryNote;
     }
     if (consumerNumber) {
       shipment.consumerNumber = consumerNumber;
@@ -292,7 +292,7 @@ export const receiveShipment = async (req, res) => {
 export const dispatchShipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { method, transportId, departureDate, departureDateIso, packagingList, packageNumber, consigneeNumber, shippingMark } = req.body;
+    const { method, transportId, departureDate, departureDateIso, packagingList, packageNumber, consigneeNumber, shippingMark, blDocument } = req.body;
     
     const departureDateValue = departureDateIso || departureDate;
     if (!method || !transportId || !departureDateValue) {
@@ -317,6 +317,7 @@ export const dispatchShipment = async (req, res) => {
       packageNumber: packageNumber || undefined,
       consigneeNumber: consigneeNumber || undefined,
       shippingMark: shippingMark || 'UZA Solutions',
+      blDocument: blDocument || undefined,
     };
     shipment.updatedAtIso = nowIso();
     await shipment.save();
@@ -475,7 +476,7 @@ export const updateShipmentDetails = async (req, res) => {
     const { id } = req.params;
     const { 
       receivedProductImages, 
-      draftBL, 
+      deliveryNote, 
       consumerNumber,
       packagingList,
       packageNumber,
@@ -499,8 +500,8 @@ export const updateShipmentDetails = async (req, res) => {
     if (receivedProductImages !== undefined) {
       shipment.receivedProductImages = Array.isArray(receivedProductImages) ? receivedProductImages : [];
     }
-    if (draftBL !== undefined) {
-      shipment.draftBL = draftBL || undefined;
+    if (deliveryNote !== undefined) {
+      shipment.deliveryNote = deliveryNote || undefined;
     }
     if (consumerNumber !== undefined) {
       shipment.consumerNumber = consumerNumber || undefined;
@@ -520,6 +521,12 @@ export const updateShipmentDetails = async (req, res) => {
       if (shippingMark !== undefined) {
         shipment.dispatch.shippingMark = shippingMark || 'UZA Solutions';
       }
+    }
+    
+    // Update blDocument if provided (for dispatch)
+    const { blDocument } = req.body;
+    if (blDocument !== undefined && shipment.dispatch) {
+      shipment.dispatch.blDocument = blDocument || undefined;
     }
 
     // Update products with dimensions and CBM if provided
