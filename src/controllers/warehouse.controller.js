@@ -344,7 +344,7 @@ export const dispatchShipment = async (req, res) => {
 export const updateShipmentStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, blDocument } = req.body;
     
     // Warehouse can set: Submitted, Received, Left Warehouse, In Transit
     const allowedStatuses = ['Submitted', 'Received', 'Left Warehouse', 'In Transit'];
@@ -382,6 +382,14 @@ export const updateShipmentStatus = async (req, res) => {
     // If reversing to Received, clear dispatch info
     if (status === 'Received' && shipment.dispatch) {
       shipment.dispatch = undefined;
+    }
+
+    // If changing to "Left Warehouse", save BL Document to dispatch
+    if (status === 'Left Warehouse' && blDocument) {
+      if (!shipment.dispatch) {
+        shipment.dispatch = {};
+      }
+      shipment.dispatch.blDocument = blDocument;
     }
 
     shipment.status = status;
