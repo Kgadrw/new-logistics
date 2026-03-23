@@ -140,7 +140,12 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     `
 
     // Fire-and-forget for SMTP failures is handled by caller; still return result for debugging.
-    await sendMail({ to: Array.from(emails).join(','), subject, text, html })
+    const result = await sendMail({ to: Array.from(emails).join(','), subject, text, html })
+    if (result?.sent) {
+      settings.totalEmailsSent = (settings.totalEmailsSent || 0) + 1
+      settings.updatedAtIso = new Date().toISOString()
+      await settings.save()
+    }
   } catch (err) {
     console.error('SendShipmentNotificationEmail failed:', err)
   }

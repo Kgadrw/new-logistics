@@ -12,6 +12,12 @@ const settingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  // Total number of shipment notification emails successfully sent via Nodemailer.
+  // Used for the admin dashboard stats card.
+  totalEmailsSent: {
+    type: Number,
+    default: 0,
+  },
   notifyOnShipmentReceived: {
     type: Boolean,
     default: true,

@@ -16,6 +16,8 @@ export const getAdminDashboard = async (req, res) => {
     const totalShipments = await Shipment.countDocuments();
     const totalUsers = await User.countDocuments();
     const activeWarehouses = await User.countDocuments({ role: 'warehouse', active: true });
+    const settings = await Settings.getSettings();
+    const totalEmailsSent = settings?.totalEmailsSent || 0;
     
     const allShipments = await Shipment.find();
     const totalRevenue = allShipments.reduce((sum, s) => sum + (s.estimatedCostUsd || 0), 0);
@@ -24,7 +26,8 @@ export const getAdminDashboard = async (req, res) => {
       totalShipments,
       totalUsers,
       totalRevenue,
-      activeWarehouses
+      activeWarehouses,
+      totalEmailsSent
     });
   } catch (error) {
     console.error('Get admin dashboard error:', error);

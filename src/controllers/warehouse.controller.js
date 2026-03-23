@@ -407,13 +407,46 @@ export const updateShipmentStatus = async (req, res) => {
       'In Transit': 'marked as In Transit'
     };
 
+    // Route notification recipients based on the *new* status.
+    // (updateShipmentStatus is used by the UI for both forward and reverse transitions.)
+    const notificationMetaByStatus = {
+      'Submitted': {
+        roleTargets: ['warehouse', 'admin'],
+        unreadBy: { client: false, warehouse: true, admin: true },
+        title: 'Shipment submitted',
+      },
+      'Received': {
+        roleTargets: ['client', 'admin'],
+        unreadBy: { client: true, warehouse: false, admin: true },
+        title: 'Shipment received',
+      },
+      'Left Warehouse': {
+        roleTargets: ['client', 'admin'],
+        unreadBy: { client: true, warehouse: false, admin: true },
+        // Contains "dispatched" so email.js categorizes it as a dispatched shipment.
+        title: 'Shipment dispatched',
+      },
+      'In Transit': {
+        roleTargets: ['client', 'admin'],
+        unreadBy: { client: true, warehouse: false, admin: true },
+        // Contains "dispatched" so email.js categorizes it as a dispatched shipment.
+        title: 'Shipment dispatched',
+      },
+    };
+
+    const meta = notificationMetaByStatus[status] || {
+      roleTargets: ['client', 'admin', 'warehouse'],
+      unreadBy: { client: true, warehouse: false, admin: true },
+      title: `Status changed to ${status}`,
+    };
+
     const notification = new Notification({
       id: makeId('ntf'),
       createdAtIso: nowIso(),
-      roleTargets: ['client', 'admin', 'warehouse'],
-      unreadBy: { client: true, warehouse: false, admin: true },
+      roleTargets: meta.roleTargets,
+      unreadBy: meta.unreadBy,
       shipmentId: id,
-      title: `Status changed to ${status}`,
+      title: meta.title,
       message: `Shipment #${id} has been ${statusMessages[status] || 'status updated'}.`,
     });
     await notification.save();
@@ -450,7 +483,8 @@ export const markInTransit = async (req, res) => {
       roleTargets: ['client', 'admin'],
       unreadBy: { client: true, warehouse: false, admin: true },
       shipmentId: id,
-      title: 'Shipment in transit',
+      // Contains "dispatched" so email.js categorizes it as a dispatched shipment.
+      title: 'Shipment dispatched',
       message: `Shipment #${id} is now in transit.`,
     });
     await notification.save();
