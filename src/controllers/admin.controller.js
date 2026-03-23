@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Shipment from '../models/Shipment.js';
 import PricingRules from '../models/PricingRules.js';
 import AuditEvent from '../models/AuditEvent.js';
+import ExternalDocument from '../models/ExternalDocument.js';
 import Settings from '../models/Settings.js';
 import { makeId } from '../utils/idGenerator.js';
 
@@ -501,6 +502,76 @@ export const updateSettings = async (req, res) => {
     res.json({ success: true, message: 'Settings updated successfully', settings });
   } catch (error) {
     console.error('Update settings error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// External documents/shipments (out-of-system records)
+export const getExternalDocuments = async (req, res) => {
+  try {
+    const docs = await ExternalDocument.find()
+      .sort({ createdAtIso: -1 })
+      .limit(200);
+    res.json(docs);
+  } catch (error) {
+    console.error('Get external documents error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createExternalDocument = async (req, res) => {
+  try {
+    const {
+      companyName,
+      reference,
+      documentType,
+      notes,
+      folderPath,
+      documents,
+    } = req.body || {};
+
+    if (!companyName) {
+      return res.status(400).json({ error: 'companyName is required' });
+    }
+
+    if (!Array.isArray(documents) || documents.length === 0) {
+      return res.status(400).json({ error: 'At least one document is required' });
+    }
+
+    const now = nowIso();
+    const record = new ExternalDocument({
+      id: makeId('ext'),
+      createdAtIso: now,
+      updatedAtIso: now,
+      companyName,
+      reference: reference || '',
+      documentType: documentType || '',
+      notes: notes || '',
+      folderPath: folderPath || '',
+      source: 'outside',
+      documents: documents.map((d) => ({
+        documentUrl: d.documentUrl,
+        fileName: d.fileName || '',
+        mimeType: d.mimeType || '',
+        uploadedAtIso: d.uploadedAtIso || now,
+      })),
+    });
+
+    await record.save();
+
+    // Create audit log
+    const audit = new AuditEvent({
+      id: makeId('aud'),
+      createdAtIso: now,
+      actor: 'Admin',
+      action: 'Create External Document',
+      detail: `External record created for ${companyName}${reference ? ` (ref: ${reference})` : ''}`,
+    });
+    await audit.save();
+
+    res.status(201).json({ success: true, message: 'External record created', record });
+  } catch (error) {
+    console.error('Create external document error:', error);
     res.status(500).json({ error: error.message });
   }
 };

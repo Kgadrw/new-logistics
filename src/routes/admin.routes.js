@@ -17,7 +17,9 @@ import {
   getAuditLogs,
   getStatistics,
   getSettings,
-  updateSettings
+  updateSettings,
+  getExternalDocuments,
+  createExternalDocument
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -53,5 +55,9 @@ router.get('/audit', getAuditLogs);
 // Settings
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+
+// External documents/shipments (out-of-system records)
+router.get('/external-documents', getExternalDocuments);
+router.post('/external-documents', createExternalDocument);
 
 export default router;
