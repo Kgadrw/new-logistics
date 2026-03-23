@@ -90,6 +90,22 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     const recipientContext = eventType === 'received' ? 'Shipment Received' : eventType === 'dispatched' ? 'Shipment Dispatched' : 'Shipment Update'
     const subject = `UZA Logistics — ${recipientContext}: ${shipment.id}`
 
+    const DASHBOARD_BASE_URL = process.env.DASHBOARD_BASE_URL || 'https://new-logistics.onrender.com'
+    const shipmentUrl = `${DASHBOARD_BASE_URL}/admin/shipments/${shipment.id}`
+
+    const escapeHtml = (value) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+
+    const safeMessage = escapeHtml(notification.message || `There is an update for shipment #${shipment.id}.`)
+    const safeClientName = escapeHtml(String(shipment.clientName || shipment.client?.name || 'Unknown'))
+    const safeWarehouseName = escapeHtml(String(shipment.warehouseName || shipment.warehouse?.name || 'Unknown'))
+    const safeUpdatedAt = escapeHtml(String(shipment.updatedAtIso || shipment.createdAtIso || '-'))
+
     const lines = []
     lines.push('Hello,')
     lines.push('')
@@ -102,6 +118,8 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     lines.push(`- Warehouse: ${shipment.warehouseName || shipment.warehouse?.name || 'Unknown'}`)
     lines.push(`- Last Updated: ${shipment.updatedAtIso || shipment.createdAtIso || '-'}`)
     lines.push('')
+    lines.push(`Open shipment: ${shipmentUrl}`)
+    lines.push('')
     lines.push('Next steps:')
     lines.push('- Please check the Admin/Warehouse/Client dashboard for full details.')
     lines.push('')
@@ -110,31 +128,71 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     const text = lines.join('\n')
 
     const html = `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.4;">
-        <div style="margin-bottom: 12px;">
-          <strong>${recipientContext}</strong>
-        </div>
-        <p style="margin: 0 0 12px 0;">${(notification.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || `There is an update for shipment #${shipment.id}.`}</p>
+      <div style="font-family: Arial, sans-serif; background: #f1f5f9; padding: 24px; color: #0f172a; line-height: 1.5;">
+        <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden;">
+          <div style="padding: 18px 22px; background: linear-gradient(90deg, #1d4ed8, #2563eb); color: #ffffff;">
+            <div style="font-weight: 800; letter-spacing: 0.2px;">UZA Logistics</div>
+            <div style="margin-top: 6px; font-size: 14px; opacity: 0.95; font-weight: 700;">${recipientContext}</div>
+          </div>
 
-        <div style="margin: 14px 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc;">
-          <div style="font-weight: 700; margin-bottom: 8px;">Shipment details</div>
-          <div><strong>Shipment ID:</strong> ${shipment.id}</div>
-          <div><strong>Status:</strong> ${shipment.status}</div>
-          <div><strong>Client:</strong> ${String(shipment.clientName || shipment.client?.name || 'Unknown')}</div>
-          <div><strong>Warehouse:</strong> ${String(shipment.warehouseName || shipment.warehouse?.name || 'Unknown')}</div>
-          <div><strong>Last Updated:</strong> ${String(shipment.updatedAtIso || shipment.createdAtIso || '-')}</div>
-        </div>
+          <div style="padding: 18px 22px;">
+            <p style="margin: 0 0 14px 0; color: #111827; font-size: 14.5px;">
+              ${safeMessage}
+            </p>
 
-        <div style="margin-top: 14px;">
-          <div style="font-weight: 700; margin-bottom: 6px;">Next steps</div>
-          <ul style="margin: 0; padding-left: 18px;">
-            <li>Please check the Admin/Warehouse/Client dashboard for full details.</li>
-          </ul>
-        </div>
+            <div style="margin: 16px 0; padding: 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc;">
+              <div style="font-weight: 800; margin-bottom: 10px; font-size: 14px;">Shipment summary</div>
 
-        <div style="margin-top: 18px; color: #334155;">
-          Regards,<br />
-          <strong>UZA Logistics</strong>
+              <div style="display: table; width: 100%; border-collapse: collapse;">
+                <div style="display: table-row;">
+                  <div style="display: table-cell; width: 40%; padding: 6px 0; color: #334155; font-weight: 700; font-size: 13px;">Shipment ID</div>
+                  <div style="display: table-cell; padding: 6px 0; font-weight: 800; font-size: 13px; text-align: right;">${escapeHtml(shipment.id)}</div>
+                </div>
+                <div style="display: table-row;">
+                  <div style="display: table-cell; padding: 6px 0; color: #334155; font-weight: 700; font-size: 13px;">Status</div>
+                  <div style="display: table-cell; padding: 6px 0; font-weight: 800; font-size: 13px; text-align: right;">${escapeHtml(shipment.status)}</div>
+                </div>
+                <div style="display: table-row;">
+                  <div style="display: table-cell; padding: 6px 0; color: #334155; font-weight: 700; font-size: 13px;">Client</div>
+                  <div style="display: table-cell; padding: 6px 0; font-weight: 800; font-size: 13px; text-align: right;">${safeClientName}</div>
+                </div>
+                <div style="display: table-row;">
+                  <div style="display: table-cell; padding: 6px 0; color: #334155; font-weight: 700; font-size: 13px;">Warehouse</div>
+                  <div style="display: table-cell; padding: 6px 0; font-weight: 800; font-size: 13px; text-align: right;">${safeWarehouseName}</div>
+                </div>
+                <div style="display: table-row;">
+                  <div style="display: table-cell; padding: 6px 0; color: #334155; font-weight: 700; font-size: 13px;">Last Updated</div>
+                  <div style="display: table-cell; padding: 6px 0; font-weight: 800; font-size: 13px; text-align: right;">${safeUpdatedAt}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="text-align: left; margin-top: 4px;">
+              <div style="font-weight: 800; margin-bottom: 10px; font-size: 14px;">Open shipment</div>
+              <div style="margin-bottom: 10px;">
+                <a href="${escapeHtml(shipmentUrl)}"
+                   style="display: inline-block; padding: 12px 16px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 800; font-size: 14px;">
+                  Open Shipment Details
+                </a>
+              </div>
+              <div style="font-size: 12.5px; color: #475569;">
+                If the button doesn&apos;t work, copy and open this link:
+                <br />
+                <span style="word-break: break-word;">${escapeHtml(shipmentUrl)}</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #e5e7eb;">
+              <div style="font-weight: 800; margin-bottom: 8px; font-size: 14px;">Next steps</div>
+              <ul style="margin: 0; padding-left: 18px; color: #334155; font-size: 13.5px;">
+                <li>Please check the Admin/Warehouse/Client dashboard for full details.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="padding: 14px 22px; background: #f8fafc; color: #64748b; font-size: 12.5px;">
+            Regards, <strong style="color:#0f172a;">UZA Logistics</strong>
+          </div>
         </div>
       </div>
     `
