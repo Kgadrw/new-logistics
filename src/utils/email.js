@@ -95,11 +95,21 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     const recipientContext = eventType === 'received' ? 'Shipment Received' : eventType === 'dispatched' ? 'Shipment Dispatched' : 'Shipment Update'
     const subject = `UZA Logistics — ${recipientContext}: ${shipment.id}`
 
-    const DASHBOARD_BASE_URL = process.env.DASHBOARD_BASE_URL || 'https://new-logistics.onrender.com'
+    const encodedShipmentId = encodeURIComponent(shipment.id)
+
+    const FRONTEND_ROOT_URL = process.env.FRONTEND_ROOT_URL || 'https://logistics.uzasolutions.com'
+    const normalizeUrl = (u) => {
+      const s = String(u || '').trim()
+      if (!s) return 'https://logistics.uzasolutions.com'
+      return s.startsWith('http://') || s.startsWith('https://') ? s : `https://${s}`
+    }
+    const rootUrl = normalizeUrl(FRONTEND_ROOT_URL).replace(/\/$/, '')
+
+    // Email recipients should open the shipment inside their own dashboard.
     const shipmentUrlsByRole = {
-      client: `${DASHBOARD_BASE_URL}/client/shipment/${shipment.id}`,
-      warehouse: `${DASHBOARD_BASE_URL}/warehouse/shipment/${shipment.id}`,
-      admin: `${DASHBOARD_BASE_URL}/admin/shipment/${shipment.id}`,
+      client: `${rootUrl}/client/shipment/${encodedShipmentId}`,
+      warehouse: `${rootUrl}/warehouse/shipment/${encodedShipmentId}`,
+      admin: `${rootUrl}/admin/shipment/${encodedShipmentId}`,
     }
 
     const escapeHtml = (value) =>
