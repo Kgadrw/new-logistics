@@ -2,6 +2,7 @@
 import Shipment from '../models/Shipment.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import { sendShipmentNotificationEmail } from '../utils/email.js';
 import { makeId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -281,6 +282,7 @@ export const receiveShipment = async (req, res) => {
       message: `Shipment #${id} has been received at the warehouse.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Shipment received successfully', shipment });
   } catch (error) {
@@ -333,6 +335,7 @@ export const dispatchShipment = async (req, res) => {
       message: `Shipment #${id} has left the warehouse via ${method}.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Shipment dispatched successfully', shipment });
   } catch (error) {
@@ -414,6 +417,7 @@ export const updateShipmentStatus = async (req, res) => {
       message: `Shipment #${id} has been ${statusMessages[status] || 'status updated'}.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Status updated successfully', shipment });
   } catch (error) {
@@ -450,6 +454,7 @@ export const markInTransit = async (req, res) => {
       message: `Shipment #${id} is now in transit.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Shipment marked as In Transit successfully', shipment });
   } catch (error) {

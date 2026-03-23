@@ -3,6 +3,7 @@ import Shipment from '../models/Shipment.js';
 import User from '../models/User.js';
 import PricingRules from '../models/PricingRules.js';
 import Notification from '../models/Notification.js';
+import { sendShipmentNotificationEmail } from '../utils/email.js';
 import { makeId, makeShipmentId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -244,6 +245,7 @@ export const createShipment = async (req, res) => {
       message: `Draft shipment #${shipmentId} created. Add items and submit when ready.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.status(201).json({ success: true, shipment });
   } catch (error) {
@@ -386,6 +388,7 @@ export const submitShipment = async (req, res) => {
       message: `Shipment #${id} has been submitted by ${shipment.clientName}.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Shipment submitted successfully', shipment });
   } catch (error) {
@@ -422,6 +425,7 @@ export const markDelivered = async (req, res) => {
       message: `Shipment #${id} has been marked as delivered by ${shipment.clientName}.`,
     });
     await notification.save();
+    void sendShipmentNotificationEmail({ notification, shipment });
 
     res.json({ success: true, message: 'Shipment marked as delivered successfully', shipment });
   } catch (error) {
