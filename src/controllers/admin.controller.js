@@ -575,3 +575,90 @@ export const createExternalDocument = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const updateExternalDocument = async (req, res) => {
+  try {
+    const { id } = req.params
+    const {
+      companyName,
+      reference,
+      documentType,
+      notes,
+      folderPath,
+      documents,
+      appendDocuments,
+    } = req.body || {}
+
+    const record = await ExternalDocument.findOne({ id })
+    if (!record) {
+      return res.status(404).json({ error: 'External record not found' })
+    }
+
+    if (!companyName) {
+      return res.status(400).json({ error: 'companyName is required' })
+    }
+
+    record.companyName = companyName
+    record.reference = reference || ''
+    record.documentType = documentType || ''
+    record.notes = notes || ''
+    record.folderPath = folderPath || record.folderPath || ''
+    record.updatedAtIso = nowIso()
+
+    if (Array.isArray(documents)) {
+      const normalizedDocs = documents.map((d) => ({
+        documentUrl: d.documentUrl,
+        fileName: d.fileName || '',
+        mimeType: d.mimeType || '',
+        uploadedAtIso: d.uploadedAtIso || nowIso(),
+      }))
+
+      if (appendDocuments) {
+        record.documents = [...(record.documents || []), ...normalizedDocs]
+      } else {
+        record.documents = normalizedDocs
+      }
+    }
+
+    await record.save()
+
+    const audit = new AuditEvent({
+      id: makeId('aud'),
+      createdAtIso: nowIso(),
+      actor: 'Admin',
+      action: 'Update External Document',
+      detail: `External record #${id} updated`,
+    })
+    await audit.save()
+
+    res.json({ success: true, message: 'External record updated', record })
+  } catch (error) {
+    console.error('Update external document error:', error)
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const deleteExternalDocument = async (req, res) => {
+  try {
+    const { id } = req.params
+    const record = await ExternalDocument.findOneAndDelete({ id })
+
+    if (!record) {
+      return res.status(404).json({ error: 'External record not found' })
+    }
+
+    const audit = new AuditEvent({
+      id: makeId('aud'),
+      createdAtIso: nowIso(),
+      actor: 'Admin',
+      action: 'Delete External Document',
+      detail: `External record #${id} deleted`,
+    })
+    await audit.save()
+
+    res.json({ success: true, message: 'External record deleted' })
+  } catch (error) {
+    console.error('Delete external document error:', error)
+    res.status(500).json({ error: error.message })
+  }
+}

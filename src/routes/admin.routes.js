@@ -19,7 +19,9 @@ import {
   getSettings,
   updateSettings,
   getExternalDocuments,
-  createExternalDocument
+  createExternalDocument,
+  updateExternalDocument,
+  deleteExternalDocument
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -59,5 +61,7 @@ router.put('/settings', updateSettings);
 // External documents/shipments (out-of-system records)
 router.get('/external-documents', getExternalDocuments);
 router.post('/external-documents', createExternalDocument);
+router.put('/external-documents/:id', updateExternalDocument);
+router.delete('/external-documents/:id', deleteExternalDocument);
 
 export default router;
