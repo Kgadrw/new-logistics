@@ -107,9 +107,9 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
 
     // Email recipients should open the shipment inside their own dashboard.
     const shipmentUrlsByRole = {
-      client: `${rootUrl}/client/shipping-page/${encodedShipmentId}`,
-      warehouse: `${rootUrl}/warehouse/shipping-page/${encodedShipmentId}`,
-      admin: `${rootUrl}/admin/shipping-page/${encodedShipmentId}`,
+      client: `${rootUrl}/client/shipment/${encodedShipmentId}`,
+      warehouse: `${rootUrl}/warehouse/shipment/${encodedShipmentId}`,
+      admin: `${rootUrl}/admin/shipment/${encodedShipmentId}`,
     }
 
     const escapeHtml = (value) =>
