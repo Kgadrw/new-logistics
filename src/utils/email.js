@@ -107,9 +107,9 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
 
     // Email recipients should open the shipment inside their own dashboard.
     const shipmentUrlsByRole = {
-      client: `${rootUrl}/client/shipment/${encodedShipmentId}`,
-      warehouse: `${rootUrl}/warehouse/shipment/${encodedShipmentId}`,
-      admin: `${rootUrl}/admin/shipment/${encodedShipmentId}`,
+      client: `${rootUrl}/client/shipping-page/${encodedShipmentId}`,
+      warehouse: `${rootUrl}/warehouse/shipping-page/${encodedShipmentId}`,
+      admin: `${rootUrl}/admin/shipping-page/${encodedShipmentId}`,
     }
 
     const escapeHtml = (value) =>
@@ -128,7 +128,7 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     const contactLines = [
       'Contact: 0788371081',
       'Email: info@uzasolutions.com',
-      'Website: www.uzasolutions',
+      'Website: www.uzasolutions.com',
       'Address: Unify House, 4th Floor Behind T2000, Kigali',
     ]
 
@@ -138,7 +138,7 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
         <div style="color:#334155; font-size: 13.5px; line-height: 1.6;">
           <div><strong>Phone:</strong> 0788371081</div>
           <div><strong>Email:</strong> info@uzasolutions.com</div>
-          <div><strong>Website:</strong> www.uzasolutions</div>
+          <div><strong>Website:</strong> www.uzasolutions.com</div>
           <div><strong>Office:</strong> Unify House, 4th Floor Behind T2000, Kigali</div>
         </div>
       </div>
