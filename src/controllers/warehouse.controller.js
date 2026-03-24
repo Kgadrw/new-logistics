@@ -1,9 +1,11 @@
 // Warehouse controller
 import Shipment from '../models/Shipment.js';
 import User from '../models/User.js';
+import PricingRules from '../models/PricingRules.js';
 import Notification from '../models/Notification.js';
 import { sendShipmentNotificationEmail } from '../utils/email.js';
 import { resolveNotificationRecipientUserIds } from '../utils/notificationRecipients.js';
+import { estimateCostUsd } from '../utils/pricingEngine.js';
 import { makeId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -68,10 +70,20 @@ export const getWarehouseProfile = async (req, res) => {
       pricePerKgUsd: user.pricePerKgUsd || 0,
       warehouseHandlingFeeUsd: user.warehouseHandlingFeeUsd || 0,
       transportPriceUsd: {
+        Truck: user.transportPriceUsd?.Truck || 0,
         Air: user.transportPriceUsd?.Air || 0,
+        Bike: user.transportPriceUsd?.Bike || 0,
         Ship: user.transportPriceUsd?.Ship || 0,
       },
       logisticsMethods: user.logisticsMethods || [],
+      cbmRateUsd: user.cbmRateUsd || 0,
+      cbmDivisorByMethod: {
+        Truck: user.cbmDivisorByMethod?.Truck || 333,
+        Air: user.cbmDivisorByMethod?.Air || 167,
+        Bike: user.cbmDivisorByMethod?.Bike || 250,
+        Ship: user.cbmDivisorByMethod?.Ship || 1000,
+      },
+      customPricingRules: user.customPricingRules || [],
     });
   } catch (error) {
     console.error('Get warehouse profile error:', error);
@@ -103,12 +115,27 @@ export const updateWarehouseProfile = async (req, res) => {
       if (updates.transportPriceUsd.Ship !== undefined) {
         user.transportPriceUsd.Ship = updates.transportPriceUsd.Ship;
       }
+      if (updates.transportPriceUsd.Truck !== undefined) {
+        user.transportPriceUsd.Truck = updates.transportPriceUsd.Truck;
+      }
+      if (updates.transportPriceUsd.Bike !== undefined) {
+        user.transportPriceUsd.Bike = updates.transportPriceUsd.Bike;
+      }
     }
     
     // Update other fields
     if (updates.pricePerKgUsd !== undefined) user.pricePerKgUsd = updates.pricePerKgUsd;
     if (updates.warehouseHandlingFeeUsd !== undefined) user.warehouseHandlingFeeUsd = updates.warehouseHandlingFeeUsd;
     if (updates.logisticsMethods !== undefined) user.logisticsMethods = updates.logisticsMethods;
+    if (updates.cbmRateUsd !== undefined) user.cbmRateUsd = updates.cbmRateUsd;
+    if (updates.cbmDivisorByMethod !== undefined) {
+      user.cbmDivisorByMethod = user.cbmDivisorByMethod || {};
+      if (updates.cbmDivisorByMethod.Truck !== undefined) user.cbmDivisorByMethod.Truck = updates.cbmDivisorByMethod.Truck;
+      if (updates.cbmDivisorByMethod.Air !== undefined) user.cbmDivisorByMethod.Air = updates.cbmDivisorByMethod.Air;
+      if (updates.cbmDivisorByMethod.Bike !== undefined) user.cbmDivisorByMethod.Bike = updates.cbmDivisorByMethod.Bike;
+      if (updates.cbmDivisorByMethod.Ship !== undefined) user.cbmDivisorByMethod.Ship = updates.cbmDivisorByMethod.Ship;
+    }
+    if (updates.customPricingRules !== undefined) user.customPricingRules = updates.customPricingRules;
     if (updates.name !== undefined) user.name = updates.name;
     if (updates.email !== undefined) user.email = updates.email;
     if (updates.location !== undefined) user.location = updates.location;
@@ -270,6 +297,19 @@ export const receiveShipment = async (req, res) => {
       shipment.consumerNumber = consumerNumber;
     }
     shipment.updatedAtIso = nowIso();
+    const warehouseUser = shipment.warehouseId
+      ? await User.findOne({ id: shipment.warehouseId, role: 'warehouse' })
+      : null;
+    const globalPricing = await PricingRules.getPricingRules();
+    const warehousePricing = {
+      pricePerKgUsd: warehouseUser?.pricePerKgUsd || 0,
+      warehouseHandlingFeeUsd: warehouseUser?.warehouseHandlingFeeUsd || 0,
+      transportPriceUsd: warehouseUser?.transportPriceUsd || {},
+      cbmRateUsd: warehouseUser?.cbmRateUsd || 0,
+      cbmDivisorByMethod: warehouseUser?.cbmDivisorByMethod || {},
+      customPricingRules: warehouseUser?.customPricingRules || [],
+    };
+    shipment.estimatedCostUsd = estimateCostUsd(globalPricing, shipment, warehousePricing);
     await shipment.save();
 
     // Create notification
@@ -325,6 +365,19 @@ export const dispatchShipment = async (req, res) => {
       blDocument: blDocument || undefined,
     };
     shipment.updatedAtIso = nowIso();
+    const warehouseUser = shipment.warehouseId
+      ? await User.findOne({ id: shipment.warehouseId, role: 'warehouse' })
+      : null;
+    const globalPricing = await PricingRules.getPricingRules();
+    const warehousePricing = {
+      pricePerKgUsd: warehouseUser?.pricePerKgUsd || 0,
+      warehouseHandlingFeeUsd: warehouseUser?.warehouseHandlingFeeUsd || 0,
+      transportPriceUsd: warehouseUser?.transportPriceUsd || {},
+      cbmRateUsd: warehouseUser?.cbmRateUsd || 0,
+      cbmDivisorByMethod: warehouseUser?.cbmDivisorByMethod || {},
+      customPricingRules: warehouseUser?.customPricingRules || [],
+    };
+    shipment.estimatedCostUsd = estimateCostUsd(globalPricing, shipment, warehousePricing);
     await shipment.save();
 
     // Create notification

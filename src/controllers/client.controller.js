@@ -5,32 +5,11 @@ import PricingRules from '../models/PricingRules.js';
 import Notification from '../models/Notification.js';
 import { sendShipmentNotificationEmail } from '../utils/email.js';
 import { resolveNotificationRecipientUserIds } from '../utils/notificationRecipients.js';
+import { estimateCostUsd } from '../utils/pricingEngine.js';
 import { makeId, makeShipmentId } from '../utils/idGenerator.js';
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function estimateCostUsd(pricing, shipment, warehousePricing = null) {
-  const kg = shipment.products.reduce((s, p) => s + p.weightKg * p.quantity, 0);
-  
-  // Use warehouse-specific pricing if available, otherwise use global pricing
-  const pricePerKg = warehousePricing?.pricePerKgUsd ?? pricing.pricePerKgUsd;
-  const handlingFee = warehousePricing?.warehouseHandlingFeeUsd ?? pricing.warehouseHandlingFeeUsd;
-  const base = kg * pricePerKg + handlingFee;
-  
-  // Transport pricing: use warehouse pricing if available and method is supported
-  let transport = 0;
-  if (shipment.dispatch) {
-    const method = shipment.dispatch.method;
-    if (warehousePricing?.transportPriceUsd?.[method] !== undefined) {
-      transport = warehousePricing.transportPriceUsd[method];
-    } else if (pricing.transportPriceUsd?.[method] !== undefined) {
-      transport = pricing.transportPriceUsd[method];
-    }
-  }
-  
-  return Math.round(base + transport);
 }
 
 export const getClientDashboard = async (req, res) => {
@@ -206,6 +185,9 @@ export const createShipment = async (req, res) => {
           pricePerKgUsd: warehouse.pricePerKgUsd || 0,
           warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
           transportPriceUsd: warehouse.transportPriceUsd || {},
+          cbmRateUsd: warehouse.cbmRateUsd || 0,
+          cbmDivisorByMethod: warehouse.cbmDivisorByMethod || {},
+          customPricingRules: warehouse.customPricingRules || [],
         };
       }
     }
@@ -286,6 +268,9 @@ export const updateShipment = async (req, res) => {
           pricePerKgUsd: warehouse.pricePerKgUsd || 0,
           warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
           transportPriceUsd: warehouse.transportPriceUsd || {},
+          cbmRateUsd: warehouse.cbmRateUsd || 0,
+          cbmDivisorByMethod: warehouse.cbmDivisorByMethod || {},
+          customPricingRules: warehouse.customPricingRules || [],
         };
       }
     }

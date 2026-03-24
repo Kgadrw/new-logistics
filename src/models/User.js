@@ -1,5 +1,17 @@
 import mongoose from 'mongoose';
 
+const customPricingRuleSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  type: { type: String, enum: ['fixed', 'percent', 'perKg', 'perCbm'], required: true },
+  value: { type: Number, required: true, default: 0 },
+  methods: [{
+    type: String,
+    enum: ['Truck', 'Air', 'Bike', 'Ship'],
+  }],
+  enabled: { type: Boolean, default: true },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -53,7 +65,15 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
   transportPriceUsd: {
+    Truck: {
+      type: Number,
+      default: 0,
+    },
     Air: {
+      type: Number,
+      default: 0,
+    },
+    Bike: {
       type: Number,
       default: 0,
     },
@@ -64,8 +84,19 @@ const userSchema = new mongoose.Schema({
   },
   logisticsMethods: [{
     type: String,
-    enum: ['Air', 'Ship'],
+    enum: ['Truck', 'Air', 'Bike', 'Ship'],
   }],
+  cbmRateUsd: {
+    type: Number,
+    default: 0,
+  },
+  cbmDivisorByMethod: {
+    Truck: { type: Number, default: 333 },
+    Air: { type: Number, default: 167 },
+    Bike: { type: Number, default: 250 },
+    Ship: { type: Number, default: 1000 },
+  },
+  customPricingRules: [customPricingRuleSchema],
 }, {
   timestamps: true,
 });

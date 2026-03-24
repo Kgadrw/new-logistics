@@ -5,29 +5,11 @@ import PricingRules from '../models/PricingRules.js';
 import AuditEvent from '../models/AuditEvent.js';
 import ExternalDocument from '../models/ExternalDocument.js';
 import Settings from '../models/Settings.js';
+import { estimateCostUsd } from '../utils/pricingEngine.js';
 import { makeId } from '../utils/idGenerator.js';
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function estimateCostUsd(pricing, shipment, warehousePricing = null) {
-  const kg = (shipment.products || []).reduce((s, p) => s + (Number(p.weightKg) || 0) * (Number(p.quantity) || 0), 0);
-  const pricePerKg = warehousePricing?.pricePerKgUsd ?? pricing.pricePerKgUsd ?? 0;
-  const handlingFee = warehousePricing?.warehouseHandlingFeeUsd ?? pricing.warehouseHandlingFeeUsd ?? 0;
-  const base = kg * pricePerKg + handlingFee;
-
-  let transport = 0;
-  const method = shipment?.dispatch?.method;
-  if (method) {
-    if (warehousePricing?.transportPriceUsd?.[method] !== undefined) {
-      transport = Number(warehousePricing.transportPriceUsd[method]) || 0;
-    } else if (pricing?.transportPriceUsd?.[method] !== undefined) {
-      transport = Number(pricing.transportPriceUsd[method]) || 0;
-    }
-  }
-
-  return Math.round(base + transport);
 }
 
 export const getAdminDashboard = async (req, res) => {
@@ -410,6 +392,14 @@ export const getPricingRules = async (req, res) => {
         Ship: pricing.transportPriceUsd?.Ship || 0,
       },
       logisticsMethods: Array.isArray(pricing.logisticsMethods) ? pricing.logisticsMethods : ['Truck', 'Air', 'Bike', 'Ship'],
+      cbmRateUsd: pricing.cbmRateUsd || 0,
+      cbmDivisorByMethod: {
+        Truck: pricing.cbmDivisorByMethod?.Truck || 333,
+        Air: pricing.cbmDivisorByMethod?.Air || 167,
+        Bike: pricing.cbmDivisorByMethod?.Bike || 250,
+        Ship: pricing.cbmDivisorByMethod?.Ship || 1000,
+      },
+      customRules: Array.isArray(pricing.customRules) ? pricing.customRules : [],
     });
   } catch (error) {
     console.error('Get pricing rules error:', error);
@@ -432,6 +422,23 @@ export const updatePricingRules = async (req, res) => {
       logisticsMethods: Array.isArray(updates.logisticsMethods)
         ? updates.logisticsMethods.filter((m) => ['Truck', 'Air', 'Bike', 'Ship'].includes(m))
         : ['Truck', 'Air', 'Bike', 'Ship'],
+      cbmRateUsd: Number(updates.cbmRateUsd) || 0,
+      cbmDivisorByMethod: {
+        Truck: Number(updates.cbmDivisorByMethod?.Truck) || 333,
+        Air: Number(updates.cbmDivisorByMethod?.Air) || 167,
+        Bike: Number(updates.cbmDivisorByMethod?.Bike) || 250,
+        Ship: Number(updates.cbmDivisorByMethod?.Ship) || 1000,
+      },
+      customRules: Array.isArray(updates.customRules)
+        ? updates.customRules.map((r) => ({
+            id: String(r?.id || makeId('prc')),
+            name: String(r?.name || 'Custom rule'),
+            type: ['fixed', 'percent', 'perKg', 'perCbm'].includes(r?.type) ? r.type : 'fixed',
+            value: Number(r?.value) || 0,
+            methods: Array.isArray(r?.methods) ? r.methods.filter((m) => ['Truck', 'Air', 'Bike', 'Ship'].includes(m)) : [],
+            enabled: r?.enabled !== false,
+          }))
+        : [],
     };
     
     let pricing = await PricingRules.findOne();
@@ -448,7 +455,7 @@ export const updatePricingRules = async (req, res) => {
       const warehouseIds = Array.from(new Set(shipments.map((s) => s.warehouseId).filter(Boolean)));
       const warehouses = warehouseIds.length
         ? await User.find({ id: { $in: warehouseIds }, role: 'warehouse' }).select(
-            'id pricePerKgUsd warehouseHandlingFeeUsd transportPriceUsd'
+            'id pricePerKgUsd warehouseHandlingFeeUsd transportPriceUsd cbmRateUsd cbmDivisorByMethod customPricingRules'
           )
         : [];
       const warehouseMap = new Map(warehouses.map((w) => [w.id, w]));
@@ -458,14 +465,19 @@ export const updatePricingRules = async (req, res) => {
         const hasWarehouseOverride = warehouse && (
           warehouse.pricePerKgUsd ||
           warehouse.warehouseHandlingFeeUsd ||
+          warehouse.cbmRateUsd ||
           warehouse.transportPriceUsd?.Air ||
-          warehouse.transportPriceUsd?.Ship
+          warehouse.transportPriceUsd?.Ship ||
+          (Array.isArray(warehouse.customPricingRules) && warehouse.customPricingRules.length > 0)
         );
         const warehousePricing = hasWarehouseOverride
           ? {
               pricePerKgUsd: warehouse.pricePerKgUsd || 0,
               warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
               transportPriceUsd: warehouse.transportPriceUsd || {},
+              cbmRateUsd: warehouse.cbmRateUsd || 0,
+              cbmDivisorByMethod: warehouse.cbmDivisorByMethod || {},
+              customPricingRules: warehouse.customPricingRules || [],
             }
           : null;
 
