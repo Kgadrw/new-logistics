@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import Settings from '../models/Settings.js'
 import User from '../models/User.js'
+import Notification from '../models/Notification.js'
 
 function getEmailConfig() {
   return {
@@ -70,19 +71,21 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
     }
 
     // Resolve client email
-    if (roleTargets.includes('client') && unreadBy.client === true && shipment.clientId) {
+    // Requirement: every notification visible in the dashboard (roleTargets) should trigger email,
+    // so we do NOT depend on `unreadBy.*` for email targeting.
+    if (roleTargets.includes('client') && shipment.clientId) {
       const clientUser = await User.findOne({ id: shipment.clientId, role: 'client' })
       if (clientUser?.email) roleEmails.client.add(clientUser.email)
     }
 
     // Resolve warehouse email
-    if (roleTargets.includes('warehouse') && unreadBy.warehouse === true && shipment.warehouseId) {
+    if (roleTargets.includes('warehouse') && shipment.warehouseId) {
       const warehouseUser = await User.findOne({ id: shipment.warehouseId, role: 'warehouse' })
       if (warehouseUser?.email) roleEmails.warehouse.add(warehouseUser.email)
     }
 
     // Resolve admins email (send to all active admins)
-    if (roleTargets.includes('admin') && unreadBy.admin === true) {
+    if (roleTargets.includes('admin')) {
       const admins = await User.find({ role: 'admin', active: true })
       admins.forEach(a => {
         if (a.email) roleEmails.admin.add(a.email)
@@ -91,6 +94,15 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
 
     const rolesToSend = ['client', 'warehouse', 'admin'].filter(r => roleEmails[r].size > 0)
     if (rolesToSend.length === 0) return
+
+    // Atomic reserve to prevent duplicates across concurrent senders.
+    // If another process already reserved/sent it, we simply stop.
+    if (!notification?._id) return
+    const reserve = await Notification.updateOne(
+      { _id: notification._id, emailSent: { $ne: true }, emailSending: { $ne: true } },
+      { $set: { emailSending: true } },
+    )
+    if (reserve.modifiedCount !== 1) return
 
     const recipientContext = eventType === 'received' ? 'Shipment Received' : eventType === 'dispatched' ? 'Shipment Dispatched' : 'Shipment Update'
     const subject = `UZA Logistics — ${recipientContext}: ${shipment.id}`
@@ -242,9 +254,29 @@ export async function sendShipmentNotificationEmail({ notification, shipment }) 
       settings.totalEmailsSent = (settings.totalEmailsSent || 0) + sentCount
       settings.updatedAtIso = new Date().toISOString()
       await settings.save()
+
+      // Mark notification as emailed so it won't be reprocessed.
+      await Notification.updateOne(
+        { _id: notification._id },
+        { $set: { emailSent: true, emailSentAtIso: new Date().toISOString(), emailSending: false } },
+      )
+    } else {
+      // Nothing was actually sent; release the lock.
+      await Notification.updateOne(
+        { _id: notification._id },
+        { $set: { emailSending: false } },
+      )
     }
   } catch (err) {
     console.error('SendShipmentNotificationEmail failed:', err)
+    // Release lock so background job can retry.
+    if (notification?._id) {
+      try {
+        await Notification.updateOne({ _id: notification._id }, { $set: { emailSending: false } })
+      } catch (_) {
+        // ignore secondary failures
+      }
+    }
   }
 }
 

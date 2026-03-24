@@ -10,6 +10,9 @@ import adminRoutes from './routes/admin.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import Notification from './models/Notification.js';
+import Shipment from './models/Shipment.js';
+import { sendShipmentNotificationEmail } from './utils/email.js';
 
 // Get the directory name of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -62,5 +65,39 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+// Background job: automatically send emails for any pending (unsent) notifications.
+// Useful for older dashboard notifications or cases where email sending was temporarily unavailable.
+let emailJobInFlight = false;
+setInterval(() => {
+  void (async () => {
+    if (emailJobInFlight) return
+    emailJobInFlight = true
+    try {
+      // Reset any leftover emailSending locks for notifications that were not emailed yet.
+      // This prevents stuck notifications blocking future automatic sends.
+      await Notification.updateMany(
+        { emailSent: { $ne: true }, emailSending: true },
+        { $set: { emailSending: false } },
+      )
+
+      const pending = await Notification.find({ emailSent: { $ne: true }, emailSending: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(10)
+
+      if (pending.length === 0) return
+
+      for (const n of pending) {
+        const shipment = await Shipment.findOne({ id: n.shipmentId })
+        if (!shipment) continue
+        await sendShipmentNotificationEmail({ notification: n, shipment })
+      }
+    } catch (err) {
+      console.error('Pending email job failed:', err)
+    } finally {
+      emailJobInFlight = false
+    }
+  })()
+}, 60 * 1000)
 
 export default app;

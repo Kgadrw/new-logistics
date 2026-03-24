@@ -37,6 +37,22 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Tracks whether we already sent an email for this notification
+  // (prevents duplicate emails when background jobs run).
+  emailSent: {
+    type: Boolean,
+    default: false,
+  },
+  emailSentAtIso: {
+    type: String,
+    default: null,
+  },
+  // Lock to avoid duplicate sending when a background job and a real-time
+  // notification sender pick up the same notification concurrently.
+  emailSending: {
+    type: Boolean,
+    default: false,
+  },
 }, {
   timestamps: true,
 });

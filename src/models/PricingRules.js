@@ -11,6 +11,28 @@ const pricingRulesSchema = new mongoose.Schema({
     required: true,
     default: 0,
   },
+  transportPriceUsd: {
+    Truck: {
+      type: Number,
+      default: 0,
+    },
+    Air: {
+      type: Number,
+      default: 0,
+    },
+    Bike: {
+      type: Number,
+      default: 0,
+    },
+    Ship: {
+      type: Number,
+      default: 0,
+    },
+  },
+  logisticsMethods: [{
+    type: String,
+    enum: ['Truck', 'Air', 'Bike', 'Ship'],
+  }],
 }, {
   timestamps: true,
 });
@@ -22,6 +44,13 @@ pricingRulesSchema.statics.getPricingRules = async function() {
     rules = await this.create({
       pricePerKgUsd: 0,
       warehouseHandlingFeeUsd: 0,
+      transportPriceUsd: {
+        Truck: 0,
+        Air: 0,
+        Bike: 0,
+        Ship: 0,
+      },
+      logisticsMethods: ['Truck', 'Air', 'Bike', 'Ship'],
     });
   }
   return rules;

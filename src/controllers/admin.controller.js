@@ -11,6 +11,25 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function estimateCostUsd(pricing, shipment, warehousePricing = null) {
+  const kg = (shipment.products || []).reduce((s, p) => s + (Number(p.weightKg) || 0) * (Number(p.quantity) || 0), 0);
+  const pricePerKg = warehousePricing?.pricePerKgUsd ?? pricing.pricePerKgUsd ?? 0;
+  const handlingFee = warehousePricing?.warehouseHandlingFeeUsd ?? pricing.warehouseHandlingFeeUsd ?? 0;
+  const base = kg * pricePerKg + handlingFee;
+
+  let transport = 0;
+  const method = shipment?.dispatch?.method;
+  if (method) {
+    if (warehousePricing?.transportPriceUsd?.[method] !== undefined) {
+      transport = Number(warehousePricing.transportPriceUsd[method]) || 0;
+    } else if (pricing?.transportPriceUsd?.[method] !== undefined) {
+      transport = Number(pricing.transportPriceUsd[method]) || 0;
+    }
+  }
+
+  return Math.round(base + transport);
+}
+
 export const getAdminDashboard = async (req, res) => {
   try {
     const totalShipments = await Shipment.countDocuments();
@@ -383,7 +402,14 @@ export const getPricingRules = async (req, res) => {
     const pricing = await PricingRules.getPricingRules();
     res.json({
       pricePerKgUsd: pricing.pricePerKgUsd,
-      warehouseHandlingFeeUsd: pricing.warehouseHandlingFeeUsd
+      warehouseHandlingFeeUsd: pricing.warehouseHandlingFeeUsd,
+      transportPriceUsd: {
+        Truck: pricing.transportPriceUsd?.Truck || 0,
+        Air: pricing.transportPriceUsd?.Air || 0,
+        Bike: pricing.transportPriceUsd?.Bike || 0,
+        Ship: pricing.transportPriceUsd?.Ship || 0,
+      },
+      logisticsMethods: Array.isArray(pricing.logisticsMethods) ? pricing.logisticsMethods : ['Truck', 'Air', 'Bike', 'Ship'],
     });
   } catch (error) {
     console.error('Get pricing rules error:', error);
@@ -393,15 +419,61 @@ export const getPricingRules = async (req, res) => {
 
 export const updatePricingRules = async (req, res) => {
   try {
-    const updates = req.body;
+    const updates = req.body || {};
+    const normalized = {
+      pricePerKgUsd: Number(updates.pricePerKgUsd) || 0,
+      warehouseHandlingFeeUsd: Number(updates.warehouseHandlingFeeUsd) || 0,
+      transportPriceUsd: {
+        Truck: Number(updates.transportPriceUsd?.Truck) || 0,
+        Air: Number(updates.transportPriceUsd?.Air) || 0,
+        Bike: Number(updates.transportPriceUsd?.Bike) || 0,
+        Ship: Number(updates.transportPriceUsd?.Ship) || 0,
+      },
+      logisticsMethods: Array.isArray(updates.logisticsMethods)
+        ? updates.logisticsMethods.filter((m) => ['Truck', 'Air', 'Bike', 'Ship'].includes(m))
+        : ['Truck', 'Air', 'Bike', 'Ship'],
+    };
     
     let pricing = await PricingRules.findOne();
     if (!pricing) {
-      pricing = new PricingRules(updates);
+      pricing = new PricingRules(normalized);
     } else {
-      Object.assign(pricing, updates);
+      Object.assign(pricing, normalized);
     }
     await pricing.save();
+
+    // Recalculate estimated costs so pricing rules immediately regulate shipment pricing.
+    const shipments = await Shipment.find();
+    if (shipments.length > 0) {
+      const warehouseIds = Array.from(new Set(shipments.map((s) => s.warehouseId).filter(Boolean)));
+      const warehouses = warehouseIds.length
+        ? await User.find({ id: { $in: warehouseIds }, role: 'warehouse' }).select(
+            'id pricePerKgUsd warehouseHandlingFeeUsd transportPriceUsd'
+          )
+        : [];
+      const warehouseMap = new Map(warehouses.map((w) => [w.id, w]));
+
+      for (const shipment of shipments) {
+        const warehouse = shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) : null;
+        const hasWarehouseOverride = warehouse && (
+          warehouse.pricePerKgUsd ||
+          warehouse.warehouseHandlingFeeUsd ||
+          warehouse.transportPriceUsd?.Air ||
+          warehouse.transportPriceUsd?.Ship
+        );
+        const warehousePricing = hasWarehouseOverride
+          ? {
+              pricePerKgUsd: warehouse.pricePerKgUsd || 0,
+              warehouseHandlingFeeUsd: warehouse.warehouseHandlingFeeUsd || 0,
+              transportPriceUsd: warehouse.transportPriceUsd || {},
+            }
+          : null;
+
+        shipment.estimatedCostUsd = estimateCostUsd(pricing, shipment, warehousePricing);
+        shipment.updatedAtIso = nowIso();
+        await shipment.save();
+      }
+    }
 
     // Create audit log
     const audit = new AuditEvent({
