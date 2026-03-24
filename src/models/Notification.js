@@ -14,6 +14,14 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: ['client', 'warehouse', 'admin'],
   }],
+  recipientUserIds: [{
+    type: String,
+    index: true,
+  }],
+  unreadUserIds: [{
+    type: String,
+    index: true,
+  }],
   unreadBy: {
     client: {
       type: Boolean,

@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import PricingRules from '../models/PricingRules.js';
 import Notification from '../models/Notification.js';
 import { sendShipmentNotificationEmail } from '../utils/email.js';
+import { resolveNotificationRecipientUserIds } from '../utils/notificationRecipients.js';
 import { makeId, makeShipmentId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -244,6 +245,8 @@ export const createShipment = async (req, res) => {
       title: 'Draft created',
       message: `Draft shipment #${shipmentId} created. Add items and submit when ready.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
@@ -387,6 +390,8 @@ export const submitShipment = async (req, res) => {
       title: 'Shipment submitted',
       message: `Shipment #${id} has been submitted by ${shipment.clientName}.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
@@ -424,6 +429,8 @@ export const markDelivered = async (req, res) => {
       title: 'Shipment delivered',
       message: `Shipment #${id} has been marked as delivered by ${shipment.clientName}.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 

@@ -3,6 +3,7 @@ import Shipment from '../models/Shipment.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { sendShipmentNotificationEmail } from '../utils/email.js';
+import { resolveNotificationRecipientUserIds } from '../utils/notificationRecipients.js';
 import { makeId } from '../utils/idGenerator.js';
 
 function nowIso() {
@@ -281,6 +282,8 @@ export const receiveShipment = async (req, res) => {
       title: 'Shipment received',
       message: `Shipment #${id} has been received at the warehouse.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
@@ -334,6 +337,8 @@ export const dispatchShipment = async (req, res) => {
       title: 'Shipment dispatched',
       message: `Shipment #${id} has left the warehouse via ${method}.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
@@ -449,6 +454,8 @@ export const updateShipmentStatus = async (req, res) => {
       title: meta.title,
       message: `Shipment #${id} has been ${statusMessages[status] || 'status updated'}.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
@@ -487,6 +494,8 @@ export const markInTransit = async (req, res) => {
       title: 'Shipment dispatched',
       message: `Shipment #${id} is now in transit.`,
     });
+    notification.recipientUserIds = await resolveNotificationRecipientUserIds({ shipment, roleTargets: notification.roleTargets });
+    notification.unreadUserIds = [...notification.recipientUserIds];
     await notification.save();
     void sendShipmentNotificationEmail({ notification, shipment });
 
